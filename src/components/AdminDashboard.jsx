@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { getPortfolioData, savePortfolioData, getLeads, deleteLead } from '../data/db';
 
 export default function AdminDashboard() {
