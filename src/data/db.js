@@ -211,7 +211,7 @@ export const getPortfolioData = async () => {
         const merged = {
           ...defaultData,
           ...dbData,
-          adminPassword: dbData.adminPassword || localData?.adminPassword || defaultData.adminPassword
+          adminPassword: dbData.adminPassword || dbData.adminpassword || localData?.adminPassword || defaultData.adminPassword
         };
         // Keep localStorage in sync with cloud
         try {
@@ -279,7 +279,7 @@ export const savePortfolioData = async (data) => {
           gallery: payload.gallery,
           testimonials: payload.testimonials,
           contact: payload.contact,
-          adminPassword: payload.adminPassword,
+          adminpassword: payload.adminPassword,
           updated_at: payload.updated_at
         });
 
