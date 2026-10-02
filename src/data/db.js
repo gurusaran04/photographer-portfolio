@@ -1,17 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://fnglpkmehsxrlzubdtcl.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_jylyuRiPQwpAoeKzNGyWyA_Tq9Hcc15';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = (supabaseUrl && supabaseAnonKey) 
+  ? createClient(supabaseUrl, supabaseAnonKey) 
+  : null;
 
-const defaultData = {
+export const defaultData = {
+  adminPassword: import.meta.env.VITE_ADMIN_PASSWORD || 'Kumar@10',
   hero: {
     eyebrow: 'Visual Storyteller',
     name: 'Muthukumaran',
     nameAccent: 'Photographer',
     tagline: 'Capturing the raw essence of human emotions, the sublime grandeur of natural landscapes, and the timeless magic of life\'s fleeting moments through an artistic lens.',
     ctaText: 'View Portfolio',
+    heroImageIds: [] // optional specific gallery image IDs to showcase in hero
   },
   stats: [
     { number: '5+', label: 'Years Experience' },
@@ -108,9 +112,9 @@ const defaultData = {
     },
     {
       id: 'g8',
-      url: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?q=80&w=1200&auto=format&fit=crop',
-      title: 'Through the Looking Glass',
-      category: 'Fine Art'
+      url: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?q=80&w=1200&auto=format&fit=crop',
+      title: 'Dynamic Sprint',
+      category: 'Sports'
     }
   ],
   testimonials: [
@@ -149,101 +153,252 @@ const defaultData = {
   }
 };
 
+/**
+ * Reads portfolio data with resilient multi-tier fallback:
+ * 1. Checks Supabase cloud database
+ * 2. Fallbacks to localStorage cache
+ * 3. Fallbacks to defaultData if initial run
+ */
 export const getPortfolioData = async () => {
+  let localData = null;
   try {
-    const { data: dbData, error } = await supabase
-      .from('portfolio_settings')
-      .select('*')
-      .eq('id', 'main_settings')
-      .single();
-
-    if (error || !dbData) {
-      // Seed first time
-      await savePortfolioData(defaultData);
-      return defaultData;
+    const localStr = localStorage.getItem('muthu_portfolio_db');
+    if (localStr) {
+      localData = JSON.parse(localStr);
     }
-    return dbData;
   } catch (err) {
-    console.warn('Supabase read failed, falling back to local storage', err);
-    const local = localStorage.getItem('muthu_portfolio_db');
-    return local ? JSON.parse(local) : defaultData;
+    console.warn('Could not read from local storage:', err);
   }
+
+  if (supabase) {
+    try {
+      const { data: dbData, error } = await supabase
+        .from('portfolio_settings')
+        .select('*')
+        .eq('id', 'main_settings')
+        .maybeSingle();
+
+      if (!error && dbData && Array.isArray(dbData.gallery)) {
+        const merged = {
+          ...defaultData,
+          ...dbData,
+          adminPassword: dbData.adminPassword || localData?.adminPassword || defaultData.adminPassword
+        };
+        // Keep localStorage in sync with cloud
+        try {
+          localStorage.setItem('muthu_portfolio_db', JSON.stringify(merged));
+        } catch (e) {}
+        return merged;
+      }
+    } catch (err) {
+      console.warn('Supabase fetch failed, falling back to local storage cache:', err);
+    }
+  }
+
+  // Fallback to local storage if available
+  if (localData && Array.isArray(localData.gallery) && localData.gallery.length > 0) {
+    return {
+      ...defaultData,
+      ...localData,
+      adminPassword: localData.adminPassword || defaultData.adminPassword
+    };
+  }
+
+  // First time initialization
+  try {
+    localStorage.setItem('muthu_portfolio_db', JSON.stringify(defaultData));
+    savePortfolioData(defaultData).catch(() => {});
+  } catch (e) {}
+
+  return defaultData;
 };
 
+/**
+ * Saves portfolio data to localStorage and Supabase simultaneously,
+ * and notifies any active listeners via window event.
+ */
 export const savePortfolioData = async (data) => {
+  const payload = {
+    ...defaultData,
+    ...data,
+    updated_at: new Date().toISOString()
+  };
+
+  // 1. Immediately persist to localStorage for instant local responsiveness
   try {
-    localStorage.setItem('muthu_portfolio_db', JSON.stringify(data));
-    const { error } = await supabase
-      .from('portfolio_settings')
-      .upsert({
-        id: 'main_settings',
-        hero: data.hero,
-        stats: data.stats,
-        about: data.about,
-        services: data.services,
-        gallery: data.gallery,
-        testimonials: data.testimonials,
-        contact: data.contact,
-        updated_at: new Date().toISOString()
-      });
-    if (error) throw error;
+    localStorage.setItem('muthu_portfolio_db', JSON.stringify(payload));
   } catch (err) {
-    console.error('Supabase write failed', err);
+    console.warn('localStorage write warning (could be quota exceeded):', err);
   }
+
+  // 2. Broadcast local update event so open tabs/components re-render immediately
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('portfolio_data_updated', { detail: payload }));
+  }
+
+  // 3. Persist to Supabase cloud if configured
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('portfolio_settings')
+        .upsert({
+          id: 'main_settings',
+          hero: payload.hero,
+          stats: payload.stats,
+          about: payload.about,
+          services: payload.services,
+          gallery: payload.gallery,
+          testimonials: payload.testimonials,
+          contact: payload.contact,
+          adminPassword: payload.adminPassword,
+          updated_at: payload.updated_at
+        });
+
+      if (error) {
+        console.warn('Supabase portfolio_settings sync notice:', error.message);
+      }
+    } catch (err) {
+      console.warn('Supabase cloud write failed:', err);
+    }
+  }
+
+  return payload;
 };
 
+/**
+ * Fetches contact inquiries from Supabase or localStorage fallback
+ */
 export const getLeads = async () => {
-  try {
-    const { data: leads, error } = await supabase
-      .from('portfolio_leads')
-      .select('*')
-      .order('date', { ascending: false });
-    
-    if (error) throw error;
-    return leads || [];
-  } catch (err) {
-    console.warn('Supabase leads read failed, falling back to local storage');
-    const local = localStorage.getItem('muthu_portfolio_db');
-    const parsed = local ? JSON.parse(local) : { leads: [] };
-    return parsed.leads || [];
+  if (supabase) {
+    try {
+      const { data: leads, error } = await supabase
+        .from('portfolio_leads')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (!error && leads) {
+        // Sync to local
+        try {
+          localStorage.setItem('muthu_portfolio_leads', JSON.stringify(leads));
+        } catch (e) {}
+        return leads;
+      }
+    } catch (err) {
+      console.warn('Supabase leads read failed, falling back to local storage');
+    }
   }
+
+  try {
+    const local = localStorage.getItem('muthu_portfolio_leads');
+    if (local) {
+      return JSON.parse(local);
+    }
+  } catch (e) {}
+
+  return [];
 };
 
+/**
+ * Adds a new contact inquiry to both localStorage and Supabase
+ */
 export const addLead = async (lead) => {
+  // 1. Save to local storage first
   try {
-    // Save locally
-    const local = localStorage.getItem('muthu_portfolio_db');
-    const parsed = local ? JSON.parse(local) : { ...defaultData, leads: [] };
-    parsed.leads = [...(parsed.leads || []), lead];
-    localStorage.setItem('muthu_portfolio_db', JSON.stringify(parsed));
-
-    // Save to Supabase
-    const { error } = await supabase
-      .from('portfolio_leads')
-      .insert(lead);
-    if (error) throw error;
+    const local = localStorage.getItem('muthu_portfolio_leads');
+    const list = local ? JSON.parse(local) : [];
+    const updated = [lead, ...list];
+    localStorage.setItem('muthu_portfolio_leads', JSON.stringify(updated));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('portfolio_leads_updated', { detail: updated }));
+    }
   } catch (err) {
-    console.error('Failed to add lead to Supabase', err);
+    console.warn('Error saving lead locally:', err);
   }
+
+  // 2. Save to Supabase if configured
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('portfolio_leads')
+        .insert([lead]);
+      if (error) {
+        console.warn('Supabase portfolio_leads insert notice:', error.message);
+      }
+    } catch (err) {
+      console.warn('Failed to add lead to Supabase cloud:', err);
+    }
+  }
+
+  return lead;
 };
 
+/**
+ * Deletes a lead inquiry by id
+ */
 export const deleteLead = async (id) => {
   try {
-    // Delete locally
-    const local = localStorage.getItem('muthu_portfolio_db');
+    const local = localStorage.getItem('muthu_portfolio_leads');
     if (local) {
-      const parsed = JSON.parse(local);
-      parsed.leads = (parsed.leads || []).filter(l => l.id !== id);
-      localStorage.setItem('muthu_portfolio_db', JSON.stringify(parsed));
+      const list = JSON.parse(local);
+      const filtered = list.filter(l => l.id !== id);
+      localStorage.setItem('muthu_portfolio_leads', JSON.stringify(filtered));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('portfolio_leads_updated', { detail: filtered }));
+      }
     }
+  } catch (err) {}
 
-    // Delete in Supabase
-    const { error } = await supabase
-      .from('portfolio_leads')
-      .delete()
-      .eq('id', id);
-    if (error) throw error;
-  } catch (err) {
-    console.error('Failed to delete lead in Supabase', err);
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('portfolio_leads')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    } catch (err) {
+      console.warn('Failed to delete lead in Supabase:', err);
+    }
   }
+};
+
+/**
+ * Utility: Compresses uploaded image via Canvas to prevent large base64 strings
+ * that blow localStorage limits or slow down page loads.
+ */
+export const compressImage = (file, maxWidth = 1400, maxHeight = 1400, quality = 0.82) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressedDataUrl);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 };
