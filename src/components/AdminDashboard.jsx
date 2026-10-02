@@ -715,7 +715,7 @@ export default function AdminDashboard() {
                     <label className="form-label text-muted small text-uppercase d-block">Profile Photo</label>
                     <div className="d-flex align-items-center gap-4 flex-wrap">
                       <img
-                        src={aboutDraft.profilePhoto || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200'}
+                        src={(aboutDraft.profilePhoto && !aboutDraft.profilePhoto.includes('unsplash.com')) ? aboutDraft.profilePhoto : '/profile.jpg'}
                         alt="Profile Preview"
                         className="border border-warning"
                         style={{ width: '120px', height: '140px', objectFit: 'cover' }}

@@ -8,6 +8,7 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
   : null;
 
 export const defaultData = {
+  version: 2,
   adminPassword: import.meta.env.VITE_ADMIN_PASSWORD || 'Kumar@10',
   hero: {
     eyebrow: 'Visual Storyteller',
@@ -165,6 +166,27 @@ export const getPortfolioData = async () => {
     const localStr = localStorage.getItem('muthu_portfolio_db');
     if (localStr) {
       localData = JSON.parse(localStr);
+      // Migrate stale profile photo and instagram link from older versions without losing gallery
+      if (localData) {
+        let changed = false;
+        if (!localData.version || localData.version < 2) {
+          localData.version = 2;
+          changed = true;
+        }
+        if (!localData.about?.profilePhoto || localData.about.profilePhoto.includes('unsplash.com')) {
+          localData.about = { ...(localData.about || {}), profilePhoto: '/profile.jpg' };
+          changed = true;
+        }
+        if (!localData.contact?.instagram || localData.contact.instagram.includes('muthu.visuals')) {
+          localData.contact = { ...(localData.contact || {}), instagram: 'https://www.instagram.com/surreal7mmlens?stkn=ajA0M3YyYXpnbHRl' };
+          changed = true;
+        }
+        if (changed) {
+          try {
+            localStorage.setItem('muthu_portfolio_db', JSON.stringify(localData));
+          } catch (e) {}
+        }
+      }
     }
   } catch (err) {
     console.warn('Could not read from local storage:', err);
@@ -179,6 +201,13 @@ export const getPortfolioData = async () => {
         .maybeSingle();
 
       if (!error && dbData && Array.isArray(dbData.gallery)) {
+        // Sanitize stale cloud data if needed
+        if (dbData.about?.profilePhoto?.includes('unsplash.com')) {
+          dbData.about.profilePhoto = '/profile.jpg';
+        }
+        if (dbData.contact?.instagram?.includes('muthu.visuals')) {
+          dbData.contact.instagram = 'https://www.instagram.com/surreal7mmlens?stkn=ajA0M3YyYXpnbHRl';
+        }
         const merged = {
           ...defaultData,
           ...dbData,

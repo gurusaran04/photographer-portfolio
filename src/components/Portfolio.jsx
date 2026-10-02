@@ -390,7 +390,7 @@ export default function Portfolio() {
       <section id="about">
         <div className="about-image-wrap">
           <img 
-            src={data.about?.profilePhoto || '/profile.jpg'} 
+            src={(data.about?.profilePhoto && !data.about.profilePhoto.includes('unsplash.com')) ? data.about.profilePhoto : '/profile.jpg'} 
             alt={data.hero?.name || 'Photographer'} 
           />
         </div>
@@ -424,7 +424,7 @@ export default function Portfolio() {
                 Visit My Social Media Page
               </span>
               <a 
-                href={data.contact?.instagram || 'https://www.instagram.com/surreal7mmlens?stkn=ajA0M3YyYXpnbHRl'} 
+                href={(data.contact?.instagram && !data.contact.instagram.includes('muthu.visuals')) ? data.contact.instagram : 'https://www.instagram.com/surreal7mmlens?stkn=ajA0M3YyYXpnbHRl'} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="d-inline-flex align-items-center justify-content-center text-decoration-none"
