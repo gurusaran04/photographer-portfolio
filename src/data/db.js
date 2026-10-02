@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lhvklncwlcjoftgmolol.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_cTL5KcawClTbUZeED2LDhg_zOiiEA6n';
 
 export const supabase = (supabaseUrl && supabaseAnonKey) 
   ? createClient(supabaseUrl, supabaseAnonKey) 
@@ -208,9 +208,27 @@ export const getPortfolioData = async () => {
         if (dbData.contact?.instagram?.includes('muthu.visuals')) {
           dbData.contact.instagram = 'https://www.instagram.com/surreal7mmlens?stkn=ajA0M3YyYXpnbHRl';
         }
+
+        // Auto-sync: If user previously uploaded custom photos locally that aren't in Supabase yet, push them to Supabase!
+        let syncedGallery = [...dbData.gallery];
+        if (localData && Array.isArray(localData.gallery)) {
+          const cloudIds = new Set(syncedGallery.map(p => p.id));
+          const localCustom = localData.gallery.filter(p => !cloudIds.has(p.id) && (String(p.id).startsWith('g_') || String(p.url).startsWith('data:')));
+          if (localCustom.length > 0) {
+            syncedGallery = [...localCustom, ...syncedGallery];
+            supabase.from('portfolio_settings').upsert({
+              ...dbData,
+              gallery: syncedGallery,
+              adminpassword: dbData.adminpassword || dbData.adminPassword || 'Kumar@10',
+              updated_at: new Date().toISOString()
+            }).then(() => {}).catch(() => {});
+          }
+        }
+
         const merged = {
           ...defaultData,
           ...dbData,
+          gallery: syncedGallery,
           adminPassword: dbData.adminPassword || dbData.adminpassword || localData?.adminPassword || defaultData.adminPassword
         };
         // Keep localStorage in sync with cloud

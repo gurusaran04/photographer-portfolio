@@ -521,9 +521,9 @@ export default function AdminDashboard() {
                       <div className="col-md-7">
                         <label className="form-label text-muted small text-uppercase">Or Image URL</label>
                         <input
-                          type="url"
+                          type="text"
                           className="form-control bg-secondary border-0 text-white rounded-0 p-3"
-                          placeholder="https://images.unsplash.com/..."
+                          placeholder="https://images.unsplash.com/... or upload above"
                           value={newPhoto.url}
                           onChange={(e) => setNewPhoto({ ...newPhoto, url: e.target.value })}
                           required

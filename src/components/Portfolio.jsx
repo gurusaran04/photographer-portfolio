@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { getPortfolioData, addLead, getLeads } from '../data/db';
+import { getPortfolioData, addLead, getLeads, defaultData } from '../data/db';
 
 export default function Portfolio() {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(defaultData);
   const [filter, setFilter] = useState('All');
   const [lightbox, setLightbox] = useState(null); // active image object or null
   const [lightboxIndex, setLightboxIndex] = useState(0);
