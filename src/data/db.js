@@ -26,7 +26,7 @@ export const defaultData = {
   about: {
     eyebrow: 'The Storyteller',
     title: 'Behind the Lens',
-    profilePhoto: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=800&auto=format&fit=crop',
+    profilePhoto: '/profile.jpg',
     bio1: 'I am Muthukumaran, a visual storyteller based in Chennai, India. For over half a decade, I have dedicated myself to freezing moments in time that speak a universal language of emotion, elegance, and beauty. My approach is minimalist yet deeply expressive, focusing on light, shadows, and the genuine connections between my subjects and their environments.',
     bio2: 'Whether it is a candid glance at a bustling wedding, a pristine landscape bathed in golden light, or a bold commercial portrait, my goal is to craft images that resonate with authenticity and stay etched in your memory forever.',
     details: [
@@ -147,7 +147,7 @@ export const defaultData = {
     email: 'muthu@visualstoryteller.com',
     phone: '+91 98765 43210',
     address: 'Studio 45, Golden Beach Road, ECR, Chennai, India',
-    instagram: 'https://instagram.com/muthu.visuals',
+    instagram: 'https://www.instagram.com/surreal7mmlens?stkn=ajA0M3YyYXpnbHRl',
     twitter: 'https://twitter.com/muthuvisuals',
     facebook: 'https://facebook.com/muthuvisuals'
   }
