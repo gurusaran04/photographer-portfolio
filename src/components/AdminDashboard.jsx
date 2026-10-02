@@ -126,15 +126,26 @@ export default function AdminDashboard() {
     setPwdChange({ current: '', newPwd: '', confirmPwd: '' });
   };
 
-  // Section Save Handler
-  const handleSaveToDB = async (sectionKey, draftValue) => {
-    const updated = { ...data, [sectionKey]: draftValue };
+  // Section Save Handler with support for single-key or multi-key atomic updates
+  const handleSaveToDB = async (sectionKeyOrObj, draftValue) => {
+    let patch = {};
+    if (typeof sectionKeyOrObj === 'string') {
+      patch = { [sectionKeyOrObj]: draftValue };
+    } else if (typeof sectionKeyOrObj === 'object') {
+      patch = sectionKeyOrObj;
+    }
+    const updated = { ...data, ...patch };
     setData(updated);
-    await savePortfolioData(updated);
-    showNotice(`${sectionKey.toUpperCase()} settings saved and live!`);
+    showNotice('Syncing changes to cloud database...', 'info');
+    try {
+      await savePortfolioData(updated);
+      showNotice('Settings saved and synchronized live to all devices!');
+    } catch (err) {
+      showNotice('Sync notice: ' + (err.message || 'Saved locally'), 'danger');
+    }
   };
 
-  // Photo updates (instant save)
+  // Photo updates (instant save and cloud broadcast)
   const handleAddPhoto = async (e) => {
     e.preventDefault();
     if (!newPhoto.url) {
@@ -151,17 +162,27 @@ export default function AdminDashboard() {
     const galleryCopy = [newItem, ...(data.gallery || [])];
     const updated = { ...data, gallery: galleryCopy };
     setData(updated);
-    await savePortfolioData(updated);
-    setNewPhoto({ url: '', title: '', category: 'Portrait' });
-    showNotice('Photo added to gallery! Visible immediately on the public site.');
+    showNotice('Publishing photo to cloud gallery...', 'info');
+    try {
+      await savePortfolioData(updated);
+      setNewPhoto({ url: '', title: '', category: 'Portrait' });
+      showNotice('Photo added! Published live and immediately visible to all visitors.');
+    } catch (err) {
+      showNotice('Saved locally. Cloud sync: ' + err.message, 'danger');
+    }
   };
 
   const handleDeletePhoto = async (id) => {
     const galleryCopy = (data.gallery || []).filter(item => item.id !== id);
     const updated = { ...data, gallery: galleryCopy };
     setData(updated);
-    await savePortfolioData(updated);
-    showNotice('Photo deleted successfully.');
+    showNotice('Deleting photo from cloud...', 'info');
+    try {
+      await savePortfolioData(updated);
+      showNotice('Photo deleted successfully and removed across all devices.');
+    } catch (err) {
+      showNotice('Notice: ' + err.message, 'danger');
+    }
   };
 
   // Handle local file selection with auto-compression
@@ -373,11 +394,16 @@ export default function AdminDashboard() {
         {/* Top Header */}
         <header className="d-flex flex-wrap justify-content-between align-items-center pb-3 mb-4 border-bottom border-secondary gap-3">
           <div>
-            <h1 className="h4 text-warning font-serif mb-1" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
-              Photographer Studio Dashboard
-            </h1>
+            <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
+              <h1 className="h4 text-warning font-serif mb-0" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                Photographer Studio Dashboard
+              </h1>
+              <span className="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50 small px-2 py-1">
+                <i className="bi bi-cloud-check-fill me-1"></i>Cloud Sync: Active
+              </span>
+            </div>
             <p className="text-white-50 mb-0 small">
-              Live updates directly synchronize with <a href="/" target="_blank" rel="noreferrer" className="text-warning text-decoration-underline">muthukumaran.visuals</a>.
+              Live updates directly synchronize with <a href="/" target="_blank" rel="noreferrer" className="text-warning text-decoration-underline">muthukumaran.visuals</a> across all public devices.
             </p>
           </div>
           <div className="d-flex align-items-center gap-2">
@@ -595,10 +621,7 @@ export default function AdminDashboard() {
                   <div className="d-flex justify-content-between align-items-center mb-4">
                     <h3 className="text-warning mb-0">Hero Section & Stats</h3>
                     <button
-                      onClick={() => {
-                        handleSaveToDB('hero', heroDraft);
-                        handleSaveToDB('stats', statsDraft);
-                      }}
+                      onClick={() => handleSaveToDB({ hero: heroDraft, stats: statsDraft })}
                       className="btn btn-warning rounded-0 px-4 py-2 text-dark font-weight-bold text-uppercase"
                       style={{ fontSize: '0.75rem', letterSpacing: '0.1em' }}
                     >

@@ -2,20 +2,64 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Muthukumaran — Visual Storyteller</title>
-    <meta name="description" content="Muthukumaran — Professional Photographer capturing portraits, landscapes, weddings and more." />
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com" rel="preconnect">
-    <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Outfit:wght@200;300;400;500&display=swap" rel="stylesheet">
-    <!-- Bootstrap CSS CDN -->
+    
+    <!-- Primary Metadata -->
+    <title>Muthukumaran — Visual Storyteller & Photographer</title>
+    <meta name="title" content="Muthukumaran — Visual Storyteller & Photographer" />
+    <meta name="description" content="Cinematic, raw, documentary photography by Muthukumaran based in Chennai, India. Specializing in portraiture, luxury weddings, fine-art landscapes, and commercial fashion." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Cache Busting Headers to guarantee end-users see live updates immediately -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
+    <!-- Open Graph / Facebook / WhatsApp Preview -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Muthukumaran — Visual Storyteller" />
+    <meta property="og:description" content="Capturing raw human emotions, sublime landscapes, and fleeting moments through an artistic lens." />
+    <meta property="og:image" content="/profile.jpg" />
+
+    <!-- Twitter Preview -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Muthukumaran — Visual Storyteller" />
+    <meta name="twitter:description" content="Capturing raw human emotions, sublime landscapes, and fleeting moments through an artistic lens." />
+    <meta name="twitter:image" content="/profile.jpg" />
+
+    <!-- Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap 5 CSS CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+      /* Smooth Dark Preloader Animation */
+      @keyframes studioSpin {
+        to { transform: rotate(360deg); }
+      }
+      body {
+        margin: 0;
+        background-color: #0b0b0b;
+        color: #f5f0eb;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Root Mounting Point with Sleek Branded Initial State -->
+    <div id="root">
+      <div style="background:#0b0b0b;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#c9a96e;font-family:'Cormorant Garamond',serif;text-align:center;padding:24px;">
+        <div style="width:42px;height:42px;border:2px solid rgba(201,169,110,0.25);border-top-color:#c9a96e;border-radius:50%;animation:studioSpin 0.9s linear infinite;margin-bottom:20px;"></div>
+        <div style="font-size:1.6rem;letter-spacing:0.18em;text-transform:uppercase;font-weight:300;">Muthukumaran</div>
+        <div style="font-size:0.75rem;color:#8a837b;letter-spacing:0.25em;text-transform:uppercase;margin-top:8px;font-family:'Outfit',sans-serif;font-weight:400;">Visual Storyteller</div>
+      </div>
+    </div>
+
+    <!-- Application Script Module -->
     <script type="module" src="/src/main.jsx"></script>
+    <!-- Bootstrap JavaScript Bundle CDN -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>
