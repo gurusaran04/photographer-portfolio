@@ -361,9 +361,6 @@ export default function AdminDashboard() {
                   <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
                 </button>
               </div>
-              <small className="text-muted mt-1 d-block" style={{ fontSize: '0.72rem' }}>
-                Default key: <code className="text-warning">Kumar@10</code> (can be changed in Security settings).
-              </small>
             </div>
             <button 
               type="submit" 

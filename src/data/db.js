@@ -38,8 +38,9 @@ export const defaultData = {
     bio1: 'I am Muthukumaran, a visual storyteller based in Chennai, India. For over half a decade, I have dedicated myself to freezing moments in time that speak a universal language of emotion, elegance, and beauty. My approach is minimalist yet deeply expressive, focusing on light, shadows, and the genuine connections between my subjects and their environments.',
     bio2: 'Whether it is a candid glance at a bustling wedding, a pristine landscape bathed in golden light, or a bold commercial portrait, my goal is to craft images that resonate with authenticity and stay etched in your memory forever.',
     details: [
-      { label: 'Camera Body', value: 'Sony A7R V / Sony FX3' },
-      { label: 'Prime Lenses', value: '35mm f/1.4 GM / 85mm f/1.2 GM' },
+      { label: 'Camera Body', value: 'Sony α7 III | Sony α7 IV | Canon 5D Mark IV' },
+      { label: 'Prime Lenses', value: '50mm f/1.8 GM / 85mm f/1.2 GM' },
+      { label: 'Zoom Lens', value: '24-70mm f/2.8 GM / 70-200mm f/2.8 GM' },
       { label: 'My Style', value: 'Cinematic, Raw, Documentary' },
       { label: 'Availability', value: 'Worldwide / Commissions Open' }
     ],
@@ -152,9 +153,9 @@ export const defaultData = {
     }
   ],
   contact: {
-    email: 'muthu@visualstoryteller.com',
-    phone: '+91 98765 43210',
-    address: 'Studio 45, Golden Beach Road, ECR, Chennai, India',
+    email: 'kumarkannagi2000@gmail.com',
+    phone: '+91 9943670421',
+    address: 'No 40 Manavalan street andal nagar perambur chennai 600011',
     instagram: 'https://www.instagram.com/surreal7mmlens?stkn=ajA0M3YyYXpnbHRl',
     twitter: 'https://twitter.com/muthuvisuals',
     facebook: 'https://facebook.com/muthuvisuals'

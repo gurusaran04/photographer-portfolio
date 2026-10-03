@@ -14,6 +14,7 @@ export default function Portfolio() {
   // Contact Form States
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [contactSuccess, setContactSuccess] = useState(false);
+  const [submittedLead, setSubmittedLead] = useState(null);
   const [contactError, setContactError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
@@ -147,7 +148,7 @@ export default function Portfolio() {
       id: 'l_' + Date.now(),
       name: formData.name.trim(),
       email: formData.email.trim(),
-      subject: formData.subject.trim(),
+      subject: formData.subject.trim() || 'General Inquiry',
       message: formData.message.trim(),
       date: new Date().toISOString()
     };
@@ -159,27 +160,15 @@ export default function Portfolio() {
     }
 
     try {
-      // 1. Check duplicate submissions against recorded leads
-      const existingLeads = await getLeads();
-      const isDuplicate = existingLeads.some(
-        lead => lead.email?.toLowerCase() === newLead.email.toLowerCase() &&
-                lead.message?.trim().toLowerCase() === newLead.message.toLowerCase()
-      );
-
-      if (isDuplicate) {
-        setContactError('You have already submitted this inquiry. I will get back to you shortly.');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // 2. Persist to Leads Database (LocalStorage + Supabase)
+      // 1. Persist directly to Leads Database (LocalStorage + Supabase)
       await addLead(newLead);
+      setSubmittedLead(newLead);
 
-      // 3. Dispatch EmailJS notification asynchronously
+      // 2. Dispatch EmailJS notification asynchronously with fallback keys
       try {
-        const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-        const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-        const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+        const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_280fbj4';
+        const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_wnt6888';
+        const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'eHSTK7sPGtsiF8p0B';
 
         if (serviceId && templateId && publicKey) {
           const emailjs = await import('@emailjs/browser');
@@ -187,7 +176,7 @@ export default function Portfolio() {
             serviceId,
             templateId,
             {
-              to_email: data.contact?.email || 'muthumarisham@gmail.com',
+              to_email: data.contact?.email || 'kumarkannagi2000@gmail.com',
               from_name: newLead.name,
               name: newLead.name,
               from_email: newLead.email,
@@ -207,7 +196,7 @@ export default function Portfolio() {
       setFormData({ name: '', email: '', subject: '', message: '' });
     } catch (err) {
       console.error('Contact form submission error:', err);
-      setContactError('An unexpected error occurred while saving your inquiry. Please try again or reach out directly via email.');
+      setContactError('An unexpected error occurred while saving your inquiry. Please try again or reach out directly via WhatsApp.');
     } finally {
       setIsSubmitting(false);
     }
@@ -524,21 +513,53 @@ export default function Portfolio() {
               <div className="contact-detail-icon"><i className="bi bi-envelope"></i></div>
               <div>
                 <div className="contact-detail-label">Email Me</div>
-                <div className="contact-detail-value">{data.contact?.email || 'muthu@visualstoryteller.com'}</div>
+                <a 
+                  href={`mailto:${data.contact?.email || 'kumarkannagi2000@gmail.com'}`}
+                  className="contact-detail-value text-decoration-none text-light d-inline-flex align-items-center gap-1"
+                >
+                  {data.contact?.email || 'kumarkannagi2000@gmail.com'}
+                  <i className="bi bi-arrow-up-right text-warning small ms-1" style={{ fontSize: '0.65rem' }}></i>
+                </a>
               </div>
             </div>
             <div className="contact-detail">
               <div className="contact-detail-icon"><i className="bi bi-telephone"></i></div>
               <div>
                 <div className="contact-detail-label">Call / WhatsApp</div>
-                <div className="contact-detail-value">{data.contact?.phone || '+91 98765 43210'}</div>
+                <div className="contact-detail-value mb-2">{data.contact?.phone || '+91 9943670421'}</div>
+                <div className="d-flex gap-2 flex-wrap">
+                  <a 
+                    href={`https://wa.me/${(data.contact?.phone || '+919943670421').replace(/[^0-9]/g, '')}?text=${encodeURIComponent("Hello Muthu, I'm reaching out from your portfolio website.")}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="btn btn-outline-warning btn-sm rounded-0 px-2 py-1 small d-inline-flex align-items-center gap-1"
+                    style={{ fontSize: '0.72rem', letterSpacing: '0.05em' }}
+                  >
+                    <i className="bi bi-whatsapp"></i> Chat on WhatsApp
+                  </a>
+                  <a 
+                    href={`tel:${(data.contact?.phone || '+919943670421').replace(/[^0-9+]/g, '')}`} 
+                    className="btn btn-outline-light btn-sm rounded-0 px-2 py-1 small d-inline-flex align-items-center gap-1"
+                    style={{ fontSize: '0.72rem', letterSpacing: '0.05em' }}
+                  >
+                    <i className="bi bi-telephone-fill"></i> Call
+                  </a>
+                </div>
               </div>
             </div>
             <div className="contact-detail">
               <div className="contact-detail-icon"><i className="bi bi-geo-alt"></i></div>
               <div>
                 <div className="contact-detail-label">Studio Address</div>
-                <div className="contact-detail-value">{data.contact?.address || 'Studio 45, Golden Beach Road, ECR, Chennai, India'}</div>
+                <a 
+                  href={`https://maps.google.com/?q=${encodeURIComponent(data.contact?.address || 'No 40 Manavalan street andal nagar perambur chennai 600011')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="contact-detail-value text-decoration-none text-light d-inline-flex align-items-center gap-1"
+                >
+                  {data.contact?.address || 'No 40 Manavalan street andal nagar perambur chennai 600011'}
+                  <i className="bi bi-box-arrow-up-right text-warning small ms-1" style={{ fontSize: '0.65rem' }}></i>
+                </a>
               </div>
             </div>
           </div>
@@ -559,16 +580,27 @@ export default function Portfolio() {
                 Inquiry Received!
               </h4>
               <p className="text-white-50 small mb-4" style={{ lineHeight: '1.7' }}>
-                Thank you for reaching out. Your message has been logged in the studio inquiry ledger, and an instant notification has been dispatched to <strong>{data.contact?.email}</strong>. I will get back to you shortly.
+                Thank you for reaching out! Your inquiry has been recorded directly into Muthu's studio ledger.
               </p>
-              <button 
-                type="button" 
-                className="btn btn-outline-warning rounded-0 px-4 py-2 small text-uppercase"
-                style={{ letterSpacing: '0.15em', fontSize: '0.72rem' }}
-                onClick={() => setContactSuccess(false)}
-              >
-                Send Another Message
-              </button>
+              <div className="d-flex justify-content-center gap-3 flex-wrap">
+                <a 
+                  href={`https://wa.me/${(data.contact?.phone || '+919943670421').replace(/[^0-9]/g, '')}?text=${encodeURIComponent('Hi Muthu, I just submitted an inquiry on your portfolio regarding: ' + (submittedLead?.subject || 'Photography Session') + '. My name is ' + (submittedLead?.name || 'Client') + '.')}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="btn btn-warning rounded-0 px-4 py-2 small text-uppercase text-dark font-weight-bold d-inline-flex align-items-center gap-2"
+                  style={{ letterSpacing: '0.1em' }}
+                >
+                  <i className="bi bi-whatsapp fs-5"></i> Ping Muthu on WhatsApp
+                </a>
+                <button 
+                  type="button" 
+                  className="btn btn-outline-light rounded-0 px-4 py-2 small text-uppercase"
+                  style={{ letterSpacing: '0.15em', fontSize: '0.72rem' }}
+                  onClick={() => setContactSuccess(false)}
+                >
+                  Send Another Inquiry
+                </button>
+              </div>
             </div>
           ) : (
             <>
@@ -598,7 +630,7 @@ export default function Portfolio() {
                 <input 
                   type="text" 
                   name="subject" 
-                  placeholder="Subject" 
+                  placeholder="Subject (e.g. Wedding, Portrait, Commercial)" 
                   value={formData.subject}
                   onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                   required 
@@ -607,26 +639,44 @@ export default function Portfolio() {
               <div className="form-group">
                 <textarea 
                   name="message" 
-                  placeholder="Tell me about your project or vision..." 
+                  placeholder="Tell me about your project, dates, or vision..." 
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   required
                 ></textarea>
               </div>
-              <button 
-                type="submit" 
-                className="form-submit btn"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    Sending Message...
-                  </>
-                ) : (
-                  'Send Message'
-                )}
-              </button>
+              <div className="d-flex gap-3 align-items-center flex-wrap">
+                <button 
+                  type="submit" 
+                  className="form-submit btn flex-grow-1"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      Sending Message...
+                    </>
+                  ) : (
+                    'Send Message'
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-warning rounded-0 py-3 px-3 d-inline-flex align-items-center gap-2 text-uppercase font-weight-bold"
+                  style={{ letterSpacing: '0.12em', fontSize: '0.75rem' }}
+                  onClick={() => {
+                    const phone = (data.contact?.phone || '+919943670421').replace(/[^0-9]/g, '');
+                    const name = formData.name.trim() || 'Client';
+                    const subject = formData.subject.trim() || 'Photography Inquiry';
+                    const msg = formData.message.trim() || 'Interested in booking a session.';
+                    const text = `Hi Muthu! My name is ${name}.\nSubject: ${subject}\nMessage: ${msg}`;
+                    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
+                  }}
+                  title="Direct Message on WhatsApp"
+                >
+                  <i className="bi bi-whatsapp fs-5 text-success"></i> Quick WhatsApp
+                </button>
+              </div>
             </>
           )}
         </form>
