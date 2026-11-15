@@ -188,12 +188,12 @@ export default function AdminDashboard() {
     }
   };
 
-  // Handle local file selection with storage upload and auto-compression
   const handlePhotoFileProcess = async (file) => {
     if (!file || !file.type.startsWith('image/')) return;
     setIsUploadingPhoto(true);
     try {
-      // First attempt direct Supabase Storage bucket upload
+      // First attempt: direct Supabase Storage bucket upload (fastest, most reliable)
+      showNotice('Uploading to cloud storage...', 'info');
       const storageUrl = await uploadImageToStorage(file);
       if (storageUrl) {
         setNewPhoto(prev => ({
@@ -202,16 +202,30 @@ export default function AdminDashboard() {
           title: prev.title || file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
         }));
         showNotice('Image uploaded to cloud storage successfully!');
-      } else {
-        // Fallback to high-efficiency compression (1100x1100 @ 0.72) to stay well under cloud request size limits
-        const compressedBase64 = await compressImage(file, 1100, 1100, 0.72);
+        return;
+      }
+
+      // Second attempt: compress first, then re-upload the compressed blob to Storage
+      showNotice('Compressing and re-uploading...', 'info');
+      const compressedBase64 = await compressImage(file, 1100, 1100, 0.72);
+      const storageUrlFromBase64 = await uploadImageToStorage(compressedBase64);
+      if (storageUrlFromBase64) {
         setNewPhoto(prev => ({
           ...prev,
-          url: compressedBase64,
+          url: storageUrlFromBase64,
           title: prev.title || file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
         }));
-        showNotice('Image optimized and ready for cloud sync.');
+        showNotice('Image compressed and uploaded to cloud storage!');
+        return;
       }
+
+      // Last resort fallback: store as base64 (will only work locally, NOT in cloud gallery)
+      setNewPhoto(prev => ({
+        ...prev,
+        url: compressedBase64,
+        title: prev.title || file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
+      }));
+      showNotice('⚠️ Cloud storage unavailable. Image ready locally only \u2014 it will NOT sync to other devices. Please check Supabase Storage bucket settings.', 'danger');
     } catch (err) {
       console.error('Failed to process image:', err);
       showNotice('Could not process image file. Try linking an image URL instead.', 'danger');

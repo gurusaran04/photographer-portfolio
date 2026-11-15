@@ -229,6 +229,18 @@ export const savePortfolioData = async (data) => {
   // 3. Persist to Supabase cloud if configured
   if (supabase) {
     try {
+      // Sanitize gallery: strip raw base64 data URLs before sending to Supabase row.
+      // Large base64 strings cause 'TypeError: Failed to fetch' because the payload is too big.
+      // Images MUST be stored in Supabase Storage as public URLs, not as base64 in the row.
+      const sanitizedGallery = (payload.gallery || []).map(item => {
+        if (item.url && item.url.startsWith('data:')) {
+          // Mark base64-only images as pending — they won't appear in cloud gallery
+          // until properly re-uploaded via the admin panel using a supported file.
+          return { ...item, url: '', _pendingUpload: true };
+        }
+        return item;
+      }).filter(item => item.url); // Remove any items with empty URL
+
       const { error } = await supabase
         .from('portfolio_settings')
         .upsert({
@@ -237,7 +249,7 @@ export const savePortfolioData = async (data) => {
           stats: payload.stats,
           about: payload.about,
           services: payload.services,
-          gallery: payload.gallery,
+          gallery: sanitizedGallery,
           testimonials: payload.testimonials,
           contact: payload.contact,
           adminpassword: payload.adminPassword,
@@ -354,23 +366,43 @@ export const deleteLead = async (id) => {
 };
 
 /**
- * Uploads an image file to Supabase Storage ('gallery' bucket) if available.
- * Returns public URL if successful, or null if storage bucket is not configured / fails.
+ * Uploads an image file OR base64 data URL to Supabase Storage ('gallery' bucket).
+ * Returns the public URL if successful, or null if storage bucket is not configured / fails.
  */
-export const uploadImageToStorage = async (file) => {
+export const uploadImageToStorage = async (fileOrBase64) => {
   if (!supabase) return null;
   try {
-    const fileExt = file.name ? file.name.split('.').pop() : 'jpg';
-    const cleanExt = (fileExt || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+    let file = fileOrBase64;
+    let cleanExt = 'jpg';
+
+    // If it's a base64 string, convert to Blob first
+    if (typeof fileOrBase64 === 'string' && fileOrBase64.startsWith('data:')) {
+      const [header, base64Data] = fileOrBase64.split(',');
+      const mimeMatch = header.match(/data:([^;]+)/);
+      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      cleanExt = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+      const byteChars = atob(base64Data);
+      const byteArray = new Uint8Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) {
+        byteArray[i] = byteChars.charCodeAt(i);
+      }
+      file = new Blob([byteArray], { type: mimeType });
+    } else if (fileOrBase64 instanceof File || fileOrBase64 instanceof Blob) {
+      const name = fileOrBase64.name || '';
+      const ext = name.split('.').pop() || 'jpg';
+      cleanExt = ext.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    }
+
     const fileName = `img_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${cleanExt}`;
     const filePath = `uploads/${fileName}`;
+    const contentType = file.type || 'image/jpeg';
 
     const { data, error } = await supabase.storage
       .from('gallery')
       .upload(filePath, file, {
         cacheControl: '3600',
         upsert: true,
-        contentType: file.type || 'image/jpeg'
+        contentType
       });
 
     if (!error && data) {
