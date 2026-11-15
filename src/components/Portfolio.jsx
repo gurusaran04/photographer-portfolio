@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { getPortfolioData, addLead, getLeads, defaultData } from '../data/db';
 
 export default function Portfolio() {
-  const [data, setData] = useState(defaultData);
+  // Always start with null — Supabase is the single source of truth.
+  // Do NOT pre-load gallery from localStorage to prevent flash of stale/old images.
+  const [data, setData] = useState(null);
   const [filter, setFilter] = useState('All');
   const [lightbox, setLightbox] = useState(null); // active image object or null
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -584,7 +586,7 @@ export default function Portfolio() {
               </p>
               <div className="d-flex justify-content-center gap-3 flex-wrap">
                 <a 
-                  href={`https://wa.me/${(data.contact?.phone || '+919943670421').replace(/[^0-9]/g, '')}?text=${encodeURIComponent('Hi Muthu, I just submitted an inquiry on your portfolio regarding: ' + (submittedLead?.subject || 'Photography Session') + '. My name is ' + (submittedLead?.name || 'Client') + '.')}`} 
+                  href={`https://wa.me/${(data.contact?.phone || '+919943670421').replace(/[^0-9]/g, '')}?text=${encodeURIComponent("Hello Muthu, I'm reaching out from your portfolio website.")}`} 
                   target="_blank" 
                   rel="noopener noreferrer" 
                   className="btn btn-warning rounded-0 px-4 py-2 small text-uppercase text-dark font-weight-bold d-inline-flex align-items-center gap-2"
@@ -666,11 +668,7 @@ export default function Portfolio() {
                   style={{ letterSpacing: '0.12em', fontSize: '0.75rem' }}
                   onClick={() => {
                     const phone = (data.contact?.phone || '+919943670421').replace(/[^0-9]/g, '');
-                    const name = formData.name.trim() || 'Client';
-                    const subject = formData.subject.trim() || 'Photography Inquiry';
-                    const msg = formData.message.trim() || 'Interested in booking a session.';
-                    const text = `Hi Muthu! My name is ${name}.\nSubject: ${subject}\nMessage: ${msg}`;
-                    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
+                    window.open(`https://wa.me/${phone}?text=${encodeURIComponent("Hello Muthu, I'm reaching out from your portfolio website.")}`, '_blank');
                   }}
                   title="Direct Message on WhatsApp"
                 >

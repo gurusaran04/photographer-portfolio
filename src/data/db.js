@@ -76,56 +76,7 @@ export const defaultData = {
       price: 'Starts at $150'
     }
   ],
-  gallery: [
-    {
-      id: 'g1',
-      url: 'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=800&auto=format&fit=crop',
-      title: 'Golden Hour Silhouette',
-      category: 'Portrait'
-    },
-    {
-      id: 'g2',
-      url: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=800&auto=format&fit=crop',
-      title: 'Monochrome Street',
-      category: 'Street'
-    },
-    {
-      id: 'g3',
-      url: 'https://images.unsplash.com/photo-1472396961693-142e6e269027?q=80&w=800&auto=format&fit=crop',
-      title: 'Mist in the Valley',
-      category: 'Landscape'
-    },
-    {
-      id: 'g4',
-      url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=800&auto=format&fit=crop',
-      title: 'The Eternal Vow',
-      category: 'Wedding'
-    },
-    {
-      id: 'g5',
-      url: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?q=80&w=800&auto=format&fit=crop',
-      title: 'High Fashion Studio',
-      category: 'Fashion'
-    },
-    {
-      id: 'g6',
-      url: 'https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop',
-      title: 'Summer Meadow Portrait',
-      category: 'Portrait'
-    },
-    {
-      id: 'g7',
-      url: 'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?q=80&w=800&auto=format&fit=crop',
-      title: 'Forest Canopy Light',
-      category: 'Landscape'
-    },
-    {
-      id: 'g8',
-      url: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?q=80&w=1200&auto=format&fit=crop',
-      title: 'Dynamic Sprint',
-      category: 'Sports'
-    }
-  ],
+  gallery: [],
   testimonials: [
     {
       id: 't1',
@@ -164,7 +115,7 @@ export const defaultData = {
 
 /**
  * Reads portfolio data with resilient multi-tier fallback:
- * 1. Checks Supabase cloud database
+ * 1. Checks Supabase cloud database (single source of truth)
  * 2. Fallbacks to localStorage cache
  * 3. Fallbacks to defaultData if initial run
  */
@@ -174,7 +125,6 @@ export const getPortfolioData = async () => {
     const localStr = localStorage.getItem('muthu_portfolio_db');
     if (localStr) {
       localData = JSON.parse(localStr);
-      // Migrate stale profile photo and instagram link from older versions without losing gallery
       if (localData) {
         let changed = false;
         if (!localData.version || localData.version < 2) {
@@ -208,7 +158,7 @@ export const getPortfolioData = async () => {
         .eq('id', 'main_settings')
         .maybeSingle();
 
-      if (!error && dbData && Array.isArray(dbData.gallery)) {
+      if (!error && dbData) {
         // Sanitize stale cloud data if needed
         if (dbData.about?.profilePhoto?.includes('unsplash.com')) {
           dbData.about.profilePhoto = '/profile.jpg';
@@ -217,29 +167,17 @@ export const getPortfolioData = async () => {
           dbData.contact.instagram = 'https://www.instagram.com/surreal7mmlens?stkn=ajA0M3YyYXpnbHRl';
         }
 
-        // Auto-sync: If user previously uploaded custom photos locally that aren't in Supabase yet, push them to Supabase!
-        let syncedGallery = [...dbData.gallery];
-        if (localData && Array.isArray(localData.gallery)) {
-          const cloudIds = new Set(syncedGallery.map(p => p.id));
-          const localCustom = localData.gallery.filter(p => !cloudIds.has(p.id) && (String(p.id).startsWith('g_') || String(p.url).startsWith('data:')));
-          if (localCustom.length > 0) {
-            syncedGallery = [...localCustom, ...syncedGallery];
-            supabase.from('portfolio_settings').upsert({
-              ...dbData,
-              gallery: syncedGallery,
-              adminpassword: dbData.adminpassword || dbData.adminPassword || 'Kumar@10',
-              updated_at: new Date().toISOString()
-            }).then(() => {}).catch(() => {});
-          }
-        }
+        // Cloud is the ONLY source of truth for gallery — always override local
+        const cloudGallery = Array.isArray(dbData.gallery) ? dbData.gallery : [];
 
         const merged = {
           ...defaultData,
           ...dbData,
-          gallery: syncedGallery,
+          gallery: cloudGallery,  // Supabase gallery ALWAYS wins — no local override
           adminPassword: dbData.adminPassword || dbData.adminpassword || localData?.adminPassword || defaultData.adminPassword
         };
-        // Keep localStorage in sync with cloud
+
+        // Update localStorage with fresh cloud data (also wipes stale AI images)
         try {
           localStorage.setItem('muthu_portfolio_db', JSON.stringify(merged));
         } catch (e) {}
@@ -250,20 +188,16 @@ export const getPortfolioData = async () => {
     }
   }
 
-  // Fallback to local storage if available
-  if (localData && Array.isArray(localData.gallery) && localData.gallery.length > 0) {
+  // Fallback to local storage ONLY for non-gallery fields (contact, about etc.).
+  // Always return an empty gallery if Supabase is unreachable, to avoid showing stale/AI images.
+  if (localData) {
     return {
       ...defaultData,
       ...localData,
+      gallery: [], // Never show stale local gallery — wait for Supabase
       adminPassword: localData.adminPassword || defaultData.adminPassword
     };
   }
-
-  // First time initialization
-  try {
-    localStorage.setItem('muthu_portfolio_db', JSON.stringify(defaultData));
-    savePortfolioData(defaultData).catch(() => {});
-  } catch (e) {}
 
   return defaultData;
 };
@@ -271,6 +205,7 @@ export const getPortfolioData = async () => {
 /**
  * Saves portfolio data to localStorage and Supabase simultaneously,
  * and notifies any active listeners via window event.
+ * Throws on cloud error so caller knows if sync failed.
  */
 export const savePortfolioData = async (data) => {
   const payload = {
@@ -310,10 +245,12 @@ export const savePortfolioData = async (data) => {
         });
 
       if (error) {
-        console.warn('Supabase portfolio_settings sync notice:', error.message);
+        console.error('Supabase portfolio_settings sync notice:', error.message);
+        throw new Error(error.message || 'Failed to save to cloud database.');
       }
     } catch (err) {
-      console.warn('Supabase cloud write failed:', err);
+      console.error('Supabase cloud write failed:', err);
+      throw err;
     }
   }
 
@@ -417,10 +354,46 @@ export const deleteLead = async (id) => {
 };
 
 /**
+ * Uploads an image file to Supabase Storage ('gallery' bucket) if available.
+ * Returns public URL if successful, or null if storage bucket is not configured / fails.
+ */
+export const uploadImageToStorage = async (file) => {
+  if (!supabase) return null;
+  try {
+    const fileExt = file.name ? file.name.split('.').pop() : 'jpg';
+    const cleanExt = (fileExt || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const fileName = `img_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${cleanExt}`;
+    const filePath = `uploads/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('gallery')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: file.type || 'image/jpeg'
+      });
+
+    if (!error && data) {
+      const { data: pubData } = supabase.storage
+        .from('gallery')
+        .getPublicUrl(filePath);
+      if (pubData?.publicUrl) {
+        return pubData.publicUrl;
+      }
+    } else if (error) {
+      console.warn('Supabase storage upload notice:', error.message);
+    }
+  } catch (err) {
+    console.warn('Storage upload exception:', err);
+  }
+  return null;
+};
+
+/**
  * Utility: Compresses uploaded image via Canvas to prevent large base64 strings
  * that blow localStorage limits or slow down page loads.
  */
-export const compressImage = (file, maxWidth = 1400, maxHeight = 1400, quality = 0.82) => {
+export const compressImage = (file, maxWidth = 1100, maxHeight = 1100, quality = 0.72) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {

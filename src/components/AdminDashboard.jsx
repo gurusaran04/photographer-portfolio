@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { getPortfolioData, savePortfolioData, getLeads, deleteLead, compressImage } from '../data/db';
+import React, { useState, useEffect, useRef } from 'react';
+import { getPortfolioData, savePortfolioData, getLeads, deleteLead, compressImage, uploadImageToStorage } from '../data/db';
 
 export default function AdminDashboard() {
+  const galleryFileInputRef = useRef(null);
+  const profileFileInputRef = useRef(null);
+
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return sessionStorage.getItem('muthu_admin_authenticated') === 'true';
   });
@@ -185,19 +188,32 @@ export default function AdminDashboard() {
     }
   };
 
-  // Handle local file selection with auto-compression
+  // Handle local file selection with storage upload and auto-compression
   const handlePhotoFileProcess = async (file) => {
     if (!file || !file.type.startsWith('image/')) return;
     setIsUploadingPhoto(true);
     try {
-      const compressedBase64 = await compressImage(file, 1400, 1400, 0.82);
-      setNewPhoto(prev => ({
-        ...prev,
-        url: compressedBase64,
-        title: prev.title || file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
-      }));
+      // First attempt direct Supabase Storage bucket upload
+      const storageUrl = await uploadImageToStorage(file);
+      if (storageUrl) {
+        setNewPhoto(prev => ({
+          ...prev,
+          url: storageUrl,
+          title: prev.title || file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
+        }));
+        showNotice('Image uploaded to cloud storage successfully!');
+      } else {
+        // Fallback to high-efficiency compression (1100x1100 @ 0.72) to stay well under cloud request size limits
+        const compressedBase64 = await compressImage(file, 1100, 1100, 0.72);
+        setNewPhoto(prev => ({
+          ...prev,
+          url: compressedBase64,
+          title: prev.title || file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
+        }));
+        showNotice('Image optimized and ready for cloud sync.');
+      }
     } catch (err) {
-      console.error('Failed to compress image:', err);
+      console.error('Failed to process image:', err);
       showNotice('Could not process image file. Try linking an image URL instead.', 'danger');
     } finally {
       setIsUploadingPhoto(false);
@@ -502,21 +518,28 @@ export default function AdminDashboard() {
                     {/* Drag and Drop Zone */}
                     <div className="mb-3">
                       <label className="form-label text-muted small text-uppercase">1. Upload Image File (Auto-Optimized)</label>
+                      <input
+                        ref={galleryFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handlePhotoFileProcess(e.target.files[0]);
+                          }
+                        }}
+                      />
                       <div
                         className="border border-dashed border-secondary p-4 text-center bg-black position-relative"
                         style={{ borderStyle: 'dashed', cursor: 'pointer' }}
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={(e) => {
                           e.preventDefault();
-                          handlePhotoFileProcess(e.dataTransfer.files[0]);
+                          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                            handlePhotoFileProcess(e.dataTransfer.files[0]);
+                          }
                         }}
-                        onClick={() => {
-                          const input = document.createElement('input');
-                          input.type = 'file';
-                          input.accept = 'image/*';
-                          input.onchange = (e) => handlePhotoFileProcess(e.target.files[0]);
-                          input.click();
-                        }}
+                        onClick={() => galleryFileInputRef.current?.click()}
                       >
                         {isUploadingPhoto ? (
                           <div className="py-2 text-warning">
@@ -547,7 +570,7 @@ export default function AdminDashboard() {
                           type="text"
                           className="form-control bg-secondary border-0 text-white rounded-0 p-3"
                           placeholder="https://images.unsplash.com/... or upload above"
-                          value={newPhoto.url}
+                          value={newPhoto.url.startsWith('data:') ? '[Optimized Image Ready]' : newPhoto.url}
                           onChange={(e) => setNewPhoto({ ...newPhoto, url: e.target.value })}
                           required
                         />
@@ -733,6 +756,26 @@ export default function AdminDashboard() {
                   {/* Profile Photo Uploader */}
                   <div className="mb-4">
                     <label className="form-label text-muted small text-uppercase d-block">Profile Photo</label>
+                    <input
+                      ref={profileFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const storageUrl = await uploadImageToStorage(file);
+                          if (storageUrl) {
+                            setAboutDraft({ ...aboutDraft, profilePhoto: storageUrl });
+                            showNotice('Profile photo uploaded to cloud storage!');
+                          } else {
+                            const res = await compressImage(file, 800, 800, 0.75);
+                            setAboutDraft({ ...aboutDraft, profilePhoto: res });
+                            showNotice('Profile photo optimized.');
+                          }
+                        }
+                      }}
+                    />
                     <div className="d-flex align-items-center gap-4 flex-wrap">
                       <img
                         src={(aboutDraft.profilePhoto && !aboutDraft.profilePhoto.includes('unsplash.com')) ? aboutDraft.profilePhoto : '/profile.jpg'}
@@ -744,29 +787,22 @@ export default function AdminDashboard() {
                         className="flex-grow-1 border border-dashed border-secondary p-4 text-center bg-dark"
                         style={{ borderStyle: 'dashed', cursor: 'pointer' }}
                         onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
+                        onDrop={async (e) => {
                           e.preventDefault();
-                          const file = e.dataTransfer.files[0];
+                          const file = e.dataTransfer.files?.[0];
                           if (file) {
-                            compressImage(file, 800, 800, 0.85).then(res => {
+                            const storageUrl = await uploadImageToStorage(file);
+                            if (storageUrl) {
+                              setAboutDraft({ ...aboutDraft, profilePhoto: storageUrl });
+                              showNotice('Profile photo uploaded to cloud storage!');
+                            } else {
+                              const res = await compressImage(file, 800, 800, 0.75);
                               setAboutDraft({ ...aboutDraft, profilePhoto: res });
-                            });
+                              showNotice('Profile photo optimized.');
+                            }
                           }
                         }}
-                        onClick={() => {
-                          const input = document.createElement('input');
-                          input.type = 'file';
-                          input.accept = 'image/*';
-                          input.onchange = (e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              compressImage(file, 800, 800, 0.85).then(res => {
-                                setAboutDraft({ ...aboutDraft, profilePhoto: res });
-                              });
-                            }
-                          };
-                          input.click();
-                        }}
+                        onClick={() => profileFileInputRef.current?.click()}
                       >
                         <i className="bi bi-cloud-arrow-up text-warning fs-3 mb-1 d-block"></i>
                         <span className="small text-white">Click or drag & drop to update profile photo</span>
